@@ -1,5 +1,5 @@
 use nalgebra::{Isometry2, Point2, UnitComplex, Vector2};
-use std::cmp::Ordering;
+use std::{cmp::Ordering, f32::consts::FRAC_PI_2};
 
 mod builder;
 mod enlarger;
@@ -64,6 +64,37 @@ impl Obstacle {
         }
     }
 
+    /// 找到避开障碍物的方法：路线离开障碍物的位置和目标点方向
+    pub fn to_avoid(
+        &self,
+        slice: impl IntoIterator<Item = Point2<f32>>,
+        inside: impl Fn(&Point2<f32>) -> bool,
+        trend: &mut f32,
+    ) -> (usize, f32) {
+        let mut skip = 0;
+        let part = slice
+            .into_iter()
+            .skip_while(|p| {
+                if !inside(p) {
+                    skip += 1;
+                    true
+                } else {
+                    false
+                }
+            })
+            .take_while(&inside)
+            .collect::<Vec<_>>();
+        let mut iter = part.iter().copied().enumerate();
+        let next = self.go_through(&mut iter, trend);
+        (
+            match part.len() {
+                0 => 0,
+                len => skip + iter.next().map_or(len, |(i, _)| i) - 1,
+            },
+            -next.theta.clamp(-FRAC_PI_2, FRAC_PI_2),
+        )
+    }
+
     /// 判断点是否在障碍物内
     #[inline]
     pub fn contains(&self, p: Point2<f32>) -> bool {
@@ -71,7 +102,7 @@ impl Obstacle {
     }
 
     /// 计算线段与障碍物交点，返回可能绕过障碍物的倒序的一列点
-    pub fn go_through(
+    fn go_through(
         &self,
         path: &mut impl Iterator<Item = (usize, Point2<f32>)>,
         trend: &mut f32,
@@ -103,6 +134,7 @@ impl Obstacle {
         }
     }
 
+    /// 判断一个点与障碍物的关系：在前方/在内部/在后方
     fn check_relation(&self, polar: Polar) -> Option<Ordering> {
         let left = self.front.last().unwrap();
         let right = self.back.last().unwrap();
