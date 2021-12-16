@@ -1,0 +1,9 @@
+[package]
+name = "obstacle-avoidance"
+version = "0.1.0"
+edition = "2021"
+authors = ["YdrMaster <ydrml@hotmail.com>"]
+readme = "README.md"
+
+[dependencies]
+nalgebra = "*" # 线性代数
